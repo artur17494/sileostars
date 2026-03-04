@@ -358,12 +358,26 @@
         
         .loader {
             display: none;
-            text-align: center;
-            padding: 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
         }
         
         .loader.show {
-            display: block;
+            display: flex;
+        }
+        
+        .loader-content {
+            background: var(--tg-theme-bg-color, #ffffff);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
         }
         
         .loader-spinner {
@@ -379,6 +393,21 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            opacity: 0.7;
+        }
+        
+        .ref-link {
+            background: var(--tg-theme-bg-color, #ffffff);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            word-break: break-all;
+            margin-bottom: 12px;
         }
     </style>
 </head>
@@ -446,7 +475,11 @@
         
         <!-- Вкладка "Заказы" -->
         <div id="ordersTab" style="display: none;">
-            <div class="orders-list" id="ordersList"></div>
+            <div class="orders-list" id="ordersList">
+                <div class="empty-state">
+                    <p>У вас пока нет заказов</p>
+                </div>
+            </div>
         </div>
         
         <!-- Вкладка "Рефералы" -->
@@ -469,7 +502,7 @@
             
             <div class="info-section">
                 <h3>📎 Ваша ссылка</h3>
-                <div class="card-number" id="refLink" style="font-size: 14px; word-break: break-all;"></div>
+                <div class="ref-link" id="refLink"></div>
                 <button class="button" onclick="copyRefLink()">Копировать ссылку</button>
                 <button class="button secondary" onclick="shareRefLink()">Поделиться</button>
             </div>
@@ -477,8 +510,10 @@
         
         <!-- Лоадер -->
         <div class="loader" id="loader">
-            <div class="loader-spinner"></div>
-            <p>Загрузка...</p>
+            <div class="loader-content">
+                <div class="loader-spinner"></div>
+                <p>Загрузка...</p>
+            </div>
         </div>
         
         <!-- Тосты -->
@@ -486,16 +521,19 @@
     </div>
     
     <script>
-        let tg = window.Telegram.WebApp;
-        let mainButton = tg.MainButton;
-        let selectedPackage = null;
-        let currentOrder = null;
-        let userData = null;
+        // Конфигурация
+        const API_URL = 'http://localhost:8000/api'; // Замените на ваш URL бэкенда
+        const RATE = 1.6;
         
-        // Инициализация WebApp
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram.WebApp;
         tg.expand();
         tg.ready();
-        tg.enableClosingConfirmation();
+        
+        // Состояние приложения
+        let userData = null;
+        let selectedPackage = null;
+        let currentOrder = null;
         
         // Данные пакетов
         const packages = [
@@ -513,21 +551,27 @@
         async function loadUserData() {
             showLoader();
             try {
-                // Здесь должен быть запрос к вашему бэкенду
-                // Пока используем тестовые данные
-                userData = {
-                    id: tg.initDataUnsafe.user?.id || 123456,
-                    balance: 150.50,
-                    referrals: 3,
-                    orders: [
-                        { id: 1, stars: 100, price: 160, status: 'completed' },
-                        { id: 2, stars: 50, price: 80, status: 'wait' }
-                    ]
-                };
+                const initData = tg.initData;
                 
-                updateUI();
+                const response = await fetch(`${API_URL}/user/data`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ initData })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    userData = result.data;
+                    updateUI();
+                } else {
+                    showToast('Ошибка загрузки данных', 'error');
+                }
             } catch (error) {
-                showToast('Ошибка загрузки данных', 'error');
+                console.error('Error loading user data:', error);
+                showToast('Ошибка соединения с сервером', 'error');
             }
             hideLoader();
         }
@@ -541,8 +585,9 @@
             document.getElementById('earnedAmount').textContent = `${userData.balance.toFixed(2)} ₽`;
             
             // Реферальная ссылка
-            const botUsername = 'SileoStarsBot'; // Замените на username вашего бота
-            const refLink = `https://t.me/${botUsername}?start=${userData.id}`;
+            const botUsername = tg.initDataUnsafe?.user?.username ? 
+                tg.initDataUnsafe.user.username : 'SileoStarsBot';
+            const refLink = `https://t.me/${botUsername}?start=${userData.userId}`;
             document.getElementById('refLink').textContent = refLink;
             
             // Загрузка заказов
@@ -557,7 +602,7 @@
             packages.forEach(pkg => {
                 const card = document.createElement('div');
                 card.className = 'star-card';
-                card.onclick = () => selectPackage(pkg);
+                card.onclick = (e) => selectPackage(pkg, e);
                 card.innerHTML = `
                     <div class="stars">${pkg.stars} ⭐</div>
                     <div class="price">${pkg.price} ₽</div>
@@ -568,14 +613,12 @@
         }
         
         // Выбор пакета
-        function selectPackage(pkg) {
-            // Снимаем выделение со всех карточек
+        function selectPackage(pkg, event) {
             document.querySelectorAll('.star-card').forEach(card => {
                 card.classList.remove('selected');
             });
             
-            // Выделяем выбранную карточку
-            event.target.closest('.star-card').classList.add('selected');
+            event.currentTarget.classList.add('selected');
             
             selectedPackage = pkg;
             document.getElementById('selectedStars').textContent = `${pkg.stars} ⭐`;
@@ -592,7 +635,7 @@
                 return;
             }
             
-            const price = Math.round(stars * 1.6); // RATE = 1.6
+            const price = Math.round(stars * RATE);
             
             selectedPackage = { stars, price };
             document.getElementById('selectedStars').textContent = `${stars} ⭐`;
@@ -610,27 +653,33 @@
             
             showLoader();
             try {
-                // Здесь должен быть запрос к бэкенду для создания заказа
-                const orderId = Math.floor(Math.random() * 1000); // Тестовый ID
-                currentOrder = {
-                    id: orderId,
-                    stars: selectedPackage.stars,
-                    price: selectedPackage.price
-                };
+                const response = await fetch(`${API_URL}/order/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        stars: selectedPackage.stars,
+                        price: selectedPackage.price,
+                        userId: userData.userId
+                    })
+                });
                 
-                document.getElementById('orderId').textContent = orderId;
-                document.getElementById('paymentAmount').textContent = `${selectedPackage.price} ₽`;
-                document.getElementById('orderInfo').style.display = 'none';
-                document.getElementById('paymentDetails').classList.add('show');
+                const result = await response.json();
                 
-                // Отправляем данные в бота
-                tg.sendData(JSON.stringify({
-                    action: 'create_order',
-                    stars: selectedPackage.stars,
-                    price: selectedPackage.price
-                }));
+                if (result.success) {
+                    currentOrder = result.data;
+                    
+                    document.getElementById('orderId').textContent = currentOrder.id;
+                    document.getElementById('paymentAmount').textContent = `${currentOrder.price} ₽`;
+                    document.getElementById('orderInfo').style.display = 'none';
+                    document.getElementById('paymentDetails').classList.add('show');
+                } else {
+                    showToast('Ошибка создания заказа', 'error');
+                }
             } catch (error) {
-                showToast('Ошибка создания заказа', 'error');
+                console.error('Error creating order:', error);
+                showToast('Ошибка соединения с сервером', 'error');
             }
             hideLoader();
         }
@@ -641,19 +690,34 @@
             
             showLoader();
             try {
-                // Отправляем подтверждение в бота
-                tg.sendData(JSON.stringify({
-                    action: 'confirm_payment',
-                    order_id: currentOrder.id
-                }));
+                const response = await fetch(`${API_URL}/order/confirm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        orderId: currentOrder.id,
+                        userId: userData.userId
+                    })
+                });
                 
-                document.getElementById('paymentDetails').classList.remove('show');
-                showToast('Заказ отправлен на проверку!', 'success');
+                const result = await response.json();
                 
-                // Переключаемся на вкладку с заказами
-                switchTab('orders');
+                if (result.success) {
+                    document.getElementById('paymentDetails').classList.remove('show');
+                    showToast('Заказ отправлен на проверку!', 'success');
+                    
+                    // Обновляем данные пользователя
+                    await loadUserData();
+                    
+                    // Переключаемся на вкладку с заказами
+                    switchTab('orders');
+                } else {
+                    showToast('Ошибка подтверждения', 'error');
+                }
             } catch (error) {
-                showToast('Ошибка подтверждения', 'error');
+                console.error('Error confirming order:', error);
+                showToast('Ошибка соединения с сервером', 'error');
             }
             hideLoader();
         }
@@ -670,7 +734,11 @@
         // Загрузка заказов
         function loadOrders() {
             const ordersList = document.getElementById('ordersList');
-            if (!userData || !userData.orders) return;
+            
+            if (!userData || !userData.orders || userData.orders.length === 0) {
+                ordersList.innerHTML = '<div class="empty-state">У вас пока нет заказов</div>';
+                return;
+            }
             
             ordersList.innerHTML = '';
             
@@ -723,7 +791,6 @@
             } else if (tab === 'orders') {
                 document.querySelectorAll('.tab')[1].classList.add('active');
                 document.getElementById('ordersTab').style.display = 'block';
-                loadOrders();
             } else if (tab === 'referrals') {
                 document.querySelectorAll('.tab')[2].classList.add('active');
                 document.getElementById('referralsTab').style.display = 'block';
@@ -765,14 +832,16 @@
             document.getElementById('loader').classList.remove('show');
         }
         
-        // Обработка данных от бота
-        tg.onEvent('mainButtonClicked', function() {
-            tg.sendData(JSON.stringify({ action: 'main_button_clicked' }));
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStarsGrid();
+            loadUserData();
         });
         
-        // Инициализация
-        loadStarsGrid();
-        loadUserData();
+        // Обновление данных при возвращении в WebApp
+        tg.onEvent('viewportChanged', () => {
+            loadUserData();
+        });
     </script>
 </body>
 </html>

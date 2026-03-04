@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sileo Stars - Магазин звёзд</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 16px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            color: var(--tg-theme-button-color, #40a7e3);
+            margin-bottom: 8px;
+        }
+        
+        .balance-card {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .balance-card h3 {
+            font-size: 14px;
+            opacity: 0.7;
+            margin-bottom: 8px;
+        }
+        
+        .balance-card .amount {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--tg-theme-button-color, #40a7e3);
+        }
+        
+        .stars-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .star-card {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 2px solid transparent;
+        }
+        
+        .star-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .star-card.selected {
+            border-color: var(--tg-theme-button-color, #40a7e3);
+            background: var(--tg-theme-bg-color, #ffffff);
+        }
+        
+        .star-card .stars {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .star-card .price {
+            font-size: 18px;
+            color: var(--tg-theme-button-color, #40a7e3);
+            font-weight: 600;
+        }
+        
+        .star-card .old-price {
+            font-size: 14px;
+            opacity: 0.5;
+            text-decoration: line-through;
+            margin-top: 4px;
+        }
+        
+        .custom-amount {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .custom-amount h3 {
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        
+        .custom-input {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .custom-input input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid var(--tg-theme-hint-color, #999999);
+            border-radius: 8px;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-size: 16px;
+        }
+        
+        .custom-input input:focus {
+            outline: none;
+            border-color: var(--tg-theme-button-color, #40a7e3);
+        }
+        
+        .custom-input button {
+            padding: 12px 24px;
+            background: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        .custom-input button:hover {
+            opacity: 0.9;
+        }
+        
+        .custom-input button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .info-section {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .info-section h3 {
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .info-item .label {
+            opacity: 0.7;
+        }
+        
+        .info-item .value {
+            font-weight: 600;
+        }
+        
+        .payment-details {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: none;
+        }
+        
+        .payment-details.show {
+            display: block;
+        }
+        
+        .payment-details h3 {
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        
+        .card-number {
+            background: var(--tg-theme-bg-color, #ffffff);
+            padding: 16px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 20px;
+            text-align: center;
+            margin-bottom: 12px;
+            letter-spacing: 2px;
+        }
+        
+        .bank-name {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 16px;
+            opacity: 0.9;
+        }
+        
+        .warning {
+            background: rgba(255, 193, 7, 0.2);
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        
+        .button {
+            width: 100%;
+            padding: 16px;
+            background: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            margin-bottom: 12px;
+        }
+        
+        .button:hover {
+            opacity: 0.9;
+        }
+        
+        .button.secondary {
+            background: transparent;
+            border: 2px solid var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-color, #40a7e3);
+        }
+        
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .orders-list {
+            margin-top: 24px;
+        }
+        
+        .order-item {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .order-info {
+            flex: 1;
+        }
+        
+        .order-stars {
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .order-price {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+        
+        .order-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-wait {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .status-paid {
+            background: #17a2b8;
+            color: #fff;
+        }
+        
+        .status-completed {
+            background: #28a745;
+            color: #fff;
+        }
+        
+        .status-cancelled {
+            background: #dc3545;
+            color: #fff;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            background: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #ffffff);
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 1000;
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loader.show {
+            display: block;
+        }
+        
+        .loader-spinner {
+            border: 3px solid var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-top: 3px solid var(--tg-theme-button-color, #40a7e3);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Шапка -->
+        <div class="header">
+            <h1>⭐ Sileo Stars</h1>
+            <p>Магазин звёзд Telegram</p>
+        </div>
+        
+        <!-- Баланс -->
+        <div class="balance-card">
+            <h3>Ваш реферальный баланс</h3>
+            <div class="amount" id="balance">0 ₽</div>
+        </div>
+        
+        <!-- Вкладки -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('buy')">Купить</div>
+            <div class="tab" onclick="switchTab('orders')">Заказы</div>
+            <div class="tab" onclick="switchTab('referrals')">Рефералы</div>
+        </div>
+        
+        <!-- Вкладка "Купить" -->
+        <div id="buyTab">
+            <div class="stars-grid" id="starsGrid"></div>
+            
+            <!-- Своё количество -->
+            <div class="custom-amount">
+                <h3>✏️ Своё количество</h3>
+                <div class="custom-input">
+                    <input type="number" id="customStars" placeholder="Введите количество" min="50" step="1">
+                    <button onclick="calculateCustom()">Рассчитать</button>
+                </div>
+            </div>
+            
+            <!-- Информация о заказе -->
+            <div class="info-section" id="orderInfo" style="display: none;">
+                <h3>📦 Ваш заказ</h3>
+                <div class="info-item">
+                    <span class="label">Звёзд:</span>
+                    <span class="value" id="selectedStars">0 ⭐</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Сумма к оплате:</span>
+                    <span class="value" id="totalPrice">0 ₽</span>
+                </div>
+                <button class="button" onclick="proceedToPayment()" id="proceedBtn">Перейти к оплате</button>
+            </div>
+            
+            <!-- Детали оплаты -->
+            <div class="payment-details" id="paymentDetails">
+                <h3>💳 Оплата заказа #<span id="orderId"></span></h3>
+                <div class="card-number">2200 7017 3830 6221</div>
+                <div class="bank-name">Т-Банк</div>
+                <div class="warning">
+                    ⚠️ Переведите <span id="paymentAmount"></span> на указанные реквизиты<br>
+                    Обязательно сохраните чек об оплате!
+                </div>
+                <button class="button" onclick="confirmPayment()" id="confirmBtn">✅ Я оплатил</button>
+                <button class="button secondary" onclick="cancelOrder()">❌ Отменить</button>
+            </div>
+        </div>
+        
+        <!-- Вкладка "Заказы" -->
+        <div id="ordersTab" style="display: none;">
+            <div class="orders-list" id="ordersList"></div>
+        </div>
+        
+        <!-- Вкладка "Рефералы" -->
+        <div id="referralsTab" style="display: none;">
+            <div class="info-section">
+                <h3>🔗 Реферальная программа</h3>
+                <div class="info-item">
+                    <span class="label">Ваших рефералов:</span>
+                    <span class="value" id="referralsCount">0</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Заработано:</span>
+                    <span class="value" id="earnedAmount">0 ₽</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Процент:</span>
+                    <span class="value">5%</span>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <h3>📎 Ваша ссылка</h3>
+                <div class="card-number" id="refLink" style="font-size: 14px; word-break: break-all;"></div>
+                <button class="button" onclick="copyRefLink()">Копировать ссылку</button>
+                <button class="button secondary" onclick="shareRefLink()">Поделиться</button>
+            </div>
+        </div>
+        
+        <!-- Лоадер -->
+        <div class="loader" id="loader">
+            <div class="loader-spinner"></div>
+            <p>Загрузка...</p>
+        </div>
+        
+        <!-- Тосты -->
+        <div class="toast" id="toast"></div>
+    </div>
+    
+    <script>
+        let tg = window.Telegram.WebApp;
+        let mainButton = tg.MainButton;
+        let selectedPackage = null;
+        let currentOrder = null;
+        let userData = null;
+        
+        // Инициализация WebApp
+        tg.expand();
+        tg.ready();
+        tg.enableClosingConfirmation();
+        
+        // Данные пакетов
+        const packages = [
+            { stars: 50, price: 80, oldPrice: 90 },
+            { stars: 100, price: 160, oldPrice: 180 },
+            { stars: 200, price: 320, oldPrice: 360 },
+            { stars: 300, price: 480, oldPrice: 540 },
+            { stars: 500, price: 800, oldPrice: 900 },
+            { stars: 750, price: 1200, oldPrice: 1350 },
+            { stars: 1000, price: 1600, oldPrice: 1800 },
+            { stars: 1500, price: 2400, oldPrice: 2700 }
+        ];
+        
+        // Загрузка данных пользователя
+        async function loadUserData() {
+            showLoader();
+            try {
+                // Здесь должен быть запрос к вашему бэкенду
+                // Пока используем тестовые данные
+                userData = {
+                    id: tg.initDataUnsafe.user?.id || 123456,
+                    balance: 150.50,
+                    referrals: 3,
+                    orders: [
+                        { id: 1, stars: 100, price: 160, status: 'completed' },
+                        { id: 2, stars: 50, price: 80, status: 'wait' }
+                    ]
+                };
+                
+                updateUI();
+            } catch (error) {
+                showToast('Ошибка загрузки данных', 'error');
+            }
+            hideLoader();
+        }
+        
+        // Обновление интерфейса
+        function updateUI() {
+            if (!userData) return;
+            
+            document.getElementById('balance').textContent = `${userData.balance.toFixed(2)} ₽`;
+            document.getElementById('referralsCount').textContent = userData.referrals;
+            document.getElementById('earnedAmount').textContent = `${userData.balance.toFixed(2)} ₽`;
+            
+            // Реферальная ссылка
+            const botUsername = 'SileoStarsBot'; // Замените на username вашего бота
+            const refLink = `https://t.me/${botUsername}?start=${userData.id}`;
+            document.getElementById('refLink').textContent = refLink;
+            
+            // Загрузка заказов
+            loadOrders();
+        }
+        
+        // Загрузка сетки звёзд
+        function loadStarsGrid() {
+            const grid = document.getElementById('starsGrid');
+            grid.innerHTML = '';
+            
+            packages.forEach(pkg => {
+                const card = document.createElement('div');
+                card.className = 'star-card';
+                card.onclick = () => selectPackage(pkg);
+                card.innerHTML = `
+                    <div class="stars">${pkg.stars} ⭐</div>
+                    <div class="price">${pkg.price} ₽</div>
+                    <div class="old-price">${pkg.oldPrice} ₽</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+        
+        // Выбор пакета
+        function selectPackage(pkg) {
+            // Снимаем выделение со всех карточек
+            document.querySelectorAll('.star-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Выделяем выбранную карточку
+            event.target.closest('.star-card').classList.add('selected');
+            
+            selectedPackage = pkg;
+            document.getElementById('selectedStars').textContent = `${pkg.stars} ⭐`;
+            document.getElementById('totalPrice').textContent = `${pkg.price} ₽`;
+            document.getElementById('orderInfo').style.display = 'block';
+            document.getElementById('paymentDetails').classList.remove('show');
+        }
+        
+        // Расчет своего количества
+        function calculateCustom() {
+            const stars = parseInt(document.getElementById('customStars').value);
+            if (stars < 50) {
+                showToast('Минимальное количество - 50 звёзд', 'error');
+                return;
+            }
+            
+            const price = Math.round(stars * 1.6); // RATE = 1.6
+            
+            selectedPackage = { stars, price };
+            document.getElementById('selectedStars').textContent = `${stars} ⭐`;
+            document.getElementById('totalPrice').textContent = `${price} ₽`;
+            document.getElementById('orderInfo').style.display = 'block';
+            document.getElementById('paymentDetails').classList.remove('show');
+        }
+        
+        // Переход к оплате
+        async function proceedToPayment() {
+            if (!selectedPackage) {
+                showToast('Выберите количество звёзд', 'error');
+                return;
+            }
+            
+            showLoader();
+            try {
+                // Здесь должен быть запрос к бэкенду для создания заказа
+                const orderId = Math.floor(Math.random() * 1000); // Тестовый ID
+                currentOrder = {
+                    id: orderId,
+                    stars: selectedPackage.stars,
+                    price: selectedPackage.price
+                };
+                
+                document.getElementById('orderId').textContent = orderId;
+                document.getElementById('paymentAmount').textContent = `${selectedPackage.price} ₽`;
+                document.getElementById('orderInfo').style.display = 'none';
+                document.getElementById('paymentDetails').classList.add('show');
+                
+                // Отправляем данные в бота
+                tg.sendData(JSON.stringify({
+                    action: 'create_order',
+                    stars: selectedPackage.stars,
+                    price: selectedPackage.price
+                }));
+            } catch (error) {
+                showToast('Ошибка создания заказа', 'error');
+            }
+            hideLoader();
+        }
+        
+        // Подтверждение оплаты
+        async function confirmPayment() {
+            if (!currentOrder) return;
+            
+            showLoader();
+            try {
+                // Отправляем подтверждение в бота
+                tg.sendData(JSON.stringify({
+                    action: 'confirm_payment',
+                    order_id: currentOrder.id
+                }));
+                
+                document.getElementById('paymentDetails').classList.remove('show');
+                showToast('Заказ отправлен на проверку!', 'success');
+                
+                // Переключаемся на вкладку с заказами
+                switchTab('orders');
+            } catch (error) {
+                showToast('Ошибка подтверждения', 'error');
+            }
+            hideLoader();
+        }
+        
+        // Отмена заказа
+        function cancelOrder() {
+            currentOrder = null;
+            selectedPackage = null;
+            document.getElementById('paymentDetails').classList.remove('show');
+            document.getElementById('orderInfo').style.display = 'none';
+            showToast('Заказ отменён', 'info');
+        }
+        
+        // Загрузка заказов
+        function loadOrders() {
+            const ordersList = document.getElementById('ordersList');
+            if (!userData || !userData.orders) return;
+            
+            ordersList.innerHTML = '';
+            
+            userData.orders.forEach(order => {
+                const orderEl = document.createElement('div');
+                orderEl.className = 'order-item';
+                
+                let statusText = '';
+                let statusClass = '';
+                
+                switch(order.status) {
+                    case 'wait':
+                        statusText = 'Ожидает оплаты';
+                        statusClass = 'status-wait';
+                        break;
+                    case 'paid':
+                        statusText = 'Оплачен';
+                        statusClass = 'status-paid';
+                        break;
+                    case 'completed':
+                        statusText = 'Выполнен';
+                        statusClass = 'status-completed';
+                        break;
+                    case 'cancelled':
+                        statusText = 'Отменён';
+                        statusClass = 'status-cancelled';
+                        break;
+                }
+                
+                orderEl.innerHTML = `
+                    <div class="order-info">
+                        <div class="order-stars">Заказ #${order.id} • ${order.stars} ⭐</div>
+                        <div class="order-price">${order.price} ₽</div>
+                    </div>
+                    <div class="order-status ${statusClass}">${statusText}</div>
+                `;
+                
+                ordersList.appendChild(orderEl);
+            });
+        }
+        
+        // Переключение вкладок
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('[id$="Tab"]').forEach(t => t.style.display = 'none');
+            
+            if (tab === 'buy') {
+                document.querySelector('.tab').classList.add('active');
+                document.getElementById('buyTab').style.display = 'block';
+            } else if (tab === 'orders') {
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('ordersTab').style.display = 'block';
+                loadOrders();
+            } else if (tab === 'referrals') {
+                document.querySelectorAll('.tab')[2].classList.add('active');
+                document.getElementById('referralsTab').style.display = 'block';
+            }
+        }
+        
+        // Копирование реферальной ссылки
+        function copyRefLink() {
+            const link = document.getElementById('refLink').textContent;
+            navigator.clipboard.writeText(link);
+            showToast('Ссылка скопирована!', 'success');
+        }
+        
+        // Поделиться ссылкой
+        function shareRefLink() {
+            const link = document.getElementById('refLink').textContent;
+            const text = 'Привет! Присоединяйся к магазину звёзд Sileo Stars!';
+            window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
+        }
+        
+        // Показать тост
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.display = 'block';
+            
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Показать лоадер
+        function showLoader() {
+            document.getElementById('loader').classList.add('show');
+        }
+        
+        // Скрыть лоадер
+        function hideLoader() {
+            document.getElementById('loader').classList.remove('show');
+        }
+        
+        // Обработка данных от бота
+        tg.onEvent('mainButtonClicked', function() {
+            tg.sendData(JSON.stringify({ action: 'main_button_clicked' }));
+        });
+        
+        // Инициализация
+        loadStarsGrid();
+        loadUserData();
+    </script>
+</body>
+</html>
